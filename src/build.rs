@@ -1,13 +1,9 @@
-mod pretty;
-
-pub use pretty::Pretty;
+use std::{collections::HashMap, fs::read_to_string, str::FromStr};
 
 use time::{
 	OffsetDateTime, format_description::StaticFormatDescription, macros::format_description,
 };
 use toml::Table;
-
-use std::{collections::HashMap, fs::read_to_string, str::FromStr};
 
 const FMT: StaticFormatDescription = format_description!(
 	"[year]-[month]-[day] [hour]:[minute]:[second] UTC[offset_hour sign:mandatory]:[offset_minute]"
