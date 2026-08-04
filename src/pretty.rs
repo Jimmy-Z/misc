@@ -1,4 +1,8 @@
-use std::fmt::{Debug, Display, Formatter, Result};
+use std::{
+	f32,
+	fmt::{Debug, Display, Formatter, Result},
+	time::Duration,
+};
 
 pub struct Pretty<T>(pub T);
 
@@ -18,22 +22,24 @@ impl Display for Pretty<f32> {
 	}
 }
 
-// if it's printable ascii, print, otherwise hexdump
+// print if it's printable ascii, otherwise hexdump
 impl Display for Pretty<&[u8]> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		pretty_bytes(self.0, f)
 	}
 }
 
-// always hexdump
+// always hexdump, if it gets too long, break into multiple lines and add ruler
 impl Debug for Pretty<&[u8]> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> Result {
 		debug_bytes(self.0, f)
 	}
 }
 
-fn printable(b: &u8) -> bool {
-	matches!(b, b' '..=b'~')
+impl Display for Pretty<Duration> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+		pretty_duration(self.0.as_secs_f32(), f)
+	}
 }
 
 // supports only a part of SI
@@ -83,6 +89,10 @@ fn pretty_bytes(v: &[u8], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 	debug_bytes_plain(v, f)
 }
 
+fn printable(b: &u8) -> bool {
+	matches!(b, b' '..=b'~')
+}
+
 const DEBUG_BYTES_LEN: usize = 16;
 
 fn debug_bytes(v: &[u8], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -128,6 +138,29 @@ fn debug_bytes_with_padding(v: &[u8], f: &mut std::fmt::Formatter<'_>) -> std::f
 		write!(f, "{}", if printable(&b) { char::from(b) } else { '·' })?;
 	}
 	Ok(())
+}
+
+const TIME_STEPS: &[(f32, &str, &str)] = &[
+	(60.0, "s", "s"),
+	(60.0, "minute", "minutes"),
+	(24.0, "hour", "hours"),
+	(7.0, "day", "days"),
+	(356.25 / 12.0 / 7.0, "week", "weeks"),
+	(12.0, "month", "months"),
+	(10.0, "year", "years"),
+	(10.0, "decade", "decades"),
+	(10.0, "century", "centuries"),
+	(f32::INFINITY, "millennium", "millenniums"),
+];
+
+fn pretty_duration(mut v: f32, f: &mut Formatter<'_>) -> Result {
+	for unit in TIME_STEPS {
+		if v < unit.0 {
+			return write!(f, "{}{}", Pretty(v), unit.2);
+		}
+		v /= unit.0;
+	}
+	unreachable!()
 }
 
 #[cfg(test)]
@@ -190,6 +223,14 @@ mod tests {
 			eprintln!("{} - {0:?}", Pretty(b));
 			let got = format!("{}", Pretty(b));
 			assert_eq!(expect, got);
+		}
+	}
+
+	#[test]
+	fn test_duration() {
+		for p in -20..25 {
+			let d = Duration::from_secs_f32(f32::consts::PI.powi(p));
+			eprintln!("{:?} {}", d, Pretty(d));
 		}
 	}
 }
